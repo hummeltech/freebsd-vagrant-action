@@ -1,26 +1,22 @@
 ---
+name: Stop & package Vagrant Box
+
 inputs:
-  release:
-    default: 13.2-RELEASE
-    description: FreeBSD release
-    options:
-      - 12.2-RELEASE
-      - 12.3-RELEASE
-      - 12.4-RELEASE
-      - 13.0-RELEASE
-      - 13.1-RELEASE
-      - 13.2-RELEASE
-    type: choice
+  pre-package-commands:
+    default: >-
+      find ${{ github.workspace }} -mindepth 1 -delete;
+      find ${{ runner.temp }} -mindepth 1 -delete;
+      sudo pkg clean --all --yes;
+    description: Command(s) to run before packaging
+    type: string
 
 runs:
   using: composite
   steps:
-    - name: Package `vagrant box file`
+    - name: Package `vagrant box`
       run: |
-        if [ ! -f /tmp/FreeBSD-${{ inputs.release }}.box ]; then
-          vagrant ssh --command "find ${{ github.workspace }} -mindepth 1 -delete"
-          vagrant ssh --command "find ${{ runner.temp }} -mindepth 1 -delete"
-          vagrant ssh --command "sudo pkg clean --all --yes"
-          vagrant package --output /tmp/FreeBSD-${{ inputs.release }}.box
+        if [ ! -f /tmp/packaged.box ]; then
+          vagrant ssh --command "${{ inputs.pre-package-commands }}"
+          vagrant package --output /tmp/packaged.box
         fi
-      shell: /bin/bash {0}
+      shell: /bin/bash --noprofile --norc -euxo pipefail {0}
