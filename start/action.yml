@@ -1,0 +1,100 @@
+---
+inputs:
+  cpus:
+    default: 2
+    description: VM CPUs
+    options:
+      - 2
+      - 4
+      - 8
+    type: choice
+  memory:
+    default: 2048
+    description: VM Memory
+    options:
+      - 1024
+      - 2048
+      - 4096
+      - 8192
+    type: choice
+  release:
+    default: 13.2-RELEASE
+    description: FreeBSD release
+    options:
+      - 12.2-RELEASE
+      - 12.3-RELEASE
+      - 12.4-RELEASE
+      - 13.0-RELEASE
+      - 13.1-RELEASE
+      - 13.2-RELEASE
+    type: choice
+
+runs:
+  using: composite
+  steps:
+    - name: Cache `vagrant box file`
+      uses: actions/cache@v3
+      with:
+        path: /tmp/FreeBSD-${{ inputs.release }}.box
+        key: FreeBSD-${{ inputs.release }}.box
+
+    - name: Provision VM
+      run: |
+        if [ -f /tmp/FreeBSD-${{ inputs.release }}.box ]; then
+          vagrant box add --name freebsd/FreeBSD-${{ inputs.release }} /tmp/FreeBSD-${{ inputs.release }}.box
+        fi
+        cat > Vagrantfile <<EOF
+          Vagrant.configure("2") do |config|
+            config.ssh.forward_env = ["*"]
+            config.vm.boot_timeout = 1800
+            config.vm.box = "freebsd/FreeBSD-${{ inputs.release }}"
+            config.vm.box_check_update = false
+            config.vm.provider :virtualbox do |v|
+              v.customize ["modifyvm", :id, "--cpus", ${{ inputs.cpus }}]
+              v.customize ["modifyvm", :id, "--memory", ${{ inputs.memory }}]
+            end
+            config.vm.provision "shell", inline: <<-SHELL
+              sysrc update_motd=NO
+              service motd onestop
+              rm -f /var/run/motd
+              chmod -x /usr/bin/fortune
+              mkdir -p /usr/local/etc/pkg/repos
+              sed "s#/quarterly#/latest#g" /etc/pkg/FreeBSD.conf > /usr/local/etc/pkg/repos/FreeBSD.conf
+              export ASSUME_ALWAYS_YES=yes
+              pkg bootstrap -f
+              pkg upgrade
+              pkg install bash rsync
+              echo "AcceptEnv *" >> /etc/ssh/sshd_config
+              service sshd restart
+            SHELL
+            config.vm.synced_folder ".", "/vagrant", disabled: true
+          end
+        EOF
+        vagrant up
+        vagrant ssh --command "sudo pkg upgrade --yes"
+        vagrant ssh --command "sudo mkdir -p ${{ github.workspace }}"
+        vagrant ssh --command "sudo chown vagrant:vagrant ${{ github.workspace }}"
+        vagrant ssh --command "sudo mkdir -p ${{ runner.temp }}"
+        vagrant ssh --command "sudo chown vagrant:vagrant ${{ runner.temp }}"
+        vagrant ssh-config --host freebsd >> ~/.ssh/config
+      shell: bash
+
+    - name: Create bash override script
+      run: |
+        echo "#!/bin/bash" | sudo tee /usr/local/bin/bash
+        echo "SCRIPT=\$(mktemp)" | sudo tee -a /usr/local/bin/bash
+        echo "echo \"#!/usr/bin/env bash\" >> \${SCRIPT}" | sudo tee -a /usr/local/bin/bash
+        echo "echo \"set -euxo pipefail\" >> \${SCRIPT}" | sudo tee -a /usr/local/bin/bash
+        echo "echo \"cd $(pwd)\" >> \${SCRIPT}" | sudo tee -a /usr/local/bin/bash
+        echo "echo \"bash \$@\" >> \${SCRIPT}" | sudo tee -a /usr/local/bin/bash
+        echo "mv \${SCRIPT} ${{ runner.temp }}/command.sh" | sudo tee -a /usr/local/bin/bash
+        echo "chmod a+x ${{ runner.temp }}/command.sh" | sudo tee -a /usr/local/bin/bash
+        echo "rsync --archive --delete ${{ github.workspace }}/ freebsd:${{ github.workspace }}/" | sudo tee -a /usr/local/bin/bash
+        echo "rsync --archive --delete ${{ runner.temp }}/ freebsd:${{ runner.temp }}/" | sudo tee -a /usr/local/bin/bash
+        echo "vagrant ssh --command \"${{ runner.temp }}/command.sh\"" | sudo tee -a /usr/local/bin/bash
+        echo "EXIT_STATUS=\$?" | sudo tee -a /usr/local/bin/bash
+        echo "rsync --archive --delete freebsd:${{ github.workspace }}/ ${{ github.workspace }}/" | sudo tee -a /usr/local/bin/bash
+        echo "rsync --archive --delete freebsd:${{ runner.temp }}/ ${{ runner.temp }}/" | sudo tee -a /usr/local/bin/bash
+        echo "exit \${EXIT_STATUS}" | sudo tee -a /usr/local/bin/bash
+        sudo chmod +x /usr/local/bin/bash
+      shell: bash
