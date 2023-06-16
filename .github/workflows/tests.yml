@@ -1,0 +1,96 @@
+name: tests
+
+on:
+  push:
+
+jobs:
+  FreeBSD:
+    name: ${{ matrix.box }}
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        box:
+          - generic/freebsd12
+          - generic/freebsd13
+      fail-fast: false
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Provision VM
+        uses: ./
+        with:
+          cpus: 4
+          box: ${{ matrix.box }}
+          save_box_to_cache: true
+          use_cached_box: true
+
+      - name: Run Test (VM)
+        run: |
+          if [ "$(uname -s)" = "FreeBSD" ]; then
+            echo "FreeBSD detected."
+          else
+            echo "FreeBSD not detected."
+            exit 1
+          fi
+        shell: bash --noprofile --norc -euo pipefail {0}
+
+      - name: Run Test (Host)
+        run: |
+          if [ "$(uname -s)" = "Darwin" ]; then
+            echo "Darwin detected."
+          else
+            echo "Darwin not detected."
+            exit 1
+          fi
+        shell: /bin/bash --noprofile --norc -euo pipefail {0}
+
+  OpenBSD:
+    name: ${{ matrix.box }}
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        box:
+          - generic/openbsd7
+      fail-fast: false
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Provision VM
+        uses: ./
+        with:
+          box: ${{ matrix.box }}
+          cpus: 4
+          pre-package-commands: >-
+            find ${{ github.workspace }} -mindepth 1 -delete;
+            find ${{ runner.temp }} -mindepth 1 -delete;
+          provision-commands: >-
+            pkg_add -u;
+            pkg_add -I rsync--;
+            mkdir -p ${{ github.workspace }};
+            chown vagrant:vagrant ${{ github.workspace }};
+            mkdir -p ${{ runner.temp }};
+            chown vagrant:vagrant ${{ runner.temp }};
+          save_box_to_cache: true
+          use_cached_box: true
+
+      - name: Run Test (VM)
+        run: |
+          if [ "$(uname -s)" = "OpenBSD" ]; then
+            echo "OpenBSD detected."
+          else
+            echo "OpenBSD not detected."
+            exit 1
+          fi
+        shell: bash --noprofile --norc -euo pipefail {0}
+
+      - name: Run Test (Host)
+        run: |
+          if [ "$(uname -s)" = "Darwin" ]; then
+            echo "Darwin detected."
+          else
+            echo "Darwin not detected."
+            exit 1
+          fi
+        shell: /bin/bash --noprofile --norc -euo pipefail {0}

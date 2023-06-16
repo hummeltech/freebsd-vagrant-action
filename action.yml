@@ -4,7 +4,7 @@ name: Start Vagrant Box
 inputs:
   box:
     default: generic/freebsd13
-    description: Vagrant box
+    description: Vagrant Box
     type: string
   cpus:
     default: 2
@@ -23,6 +23,13 @@ inputs:
       - 4096
       - 8192
     type: choice
+  pre-package-commands:
+    default: >-
+      find ${{ github.workspace }} -mindepth 1 -delete;
+      find ${{ runner.temp }} -mindepth 1 -delete;
+      sudo pkg clean --all --yes;
+    description: Command(s) to run before packaging Vagrant Box (double quotation marks are not allowed)
+    type: string
   provision-commands:
     default: >-
       sysrc update_motd=NO;
@@ -41,26 +48,55 @@ inputs:
       chown vagrant:vagrant ${{ github.workspace }};
       mkdir -p ${{ runner.temp }};
       chown vagrant:vagrant ${{ runner.temp }};
-    description: Command(s) to run for provisioning
+    description: Command(s) to run for provisioning (double quotation marks are not allowed)
     type: string
+  save_box_to_cache:
+    description: Save Vagrant Box to GitHub Actions Cache
+    type: boolean
+  use_cached_box:
+    description: Use Vagrant Box from GitHub Actions Cache
+    type: boolean
+  vagrant_box_descriptor:
+    default: /tmp/packaged.box
+    description: Vagrant Box Descriptor <name, url, or path>
+    type: string
+  vagrant_ssh_username:
+    default: vagrant
+    description: SSH Username for `vagrant ssh`
+    type: string
+
 
 runs:
   using: composite
   steps:
-    - name: Cache `vagrant box`
+    - name: Upgrade Vagrant
+      run: brew upgrade --force --quiet vagrant
+      shell: bash
+
+    - name: Cache Vagrant Box
+      if: inputs.save_box_to_cache
       uses: actions/cache@v3
       with:
-        path: /tmp/packaged.box
+        path: ${{ inputs.vagrant_box_descriptor }}
         key: ${{ inputs.box }}.box
 
-    - name: Provision VM
+    - name: Add Vagrant Box
+      if: inputs.use_cached_box
       run: |
-        if [ -f /tmp/packaged.box ]; then
-          vagrant box add --name ${{ inputs.box }} /tmp/packaged.box
+        if [ -f ${{ inputs.vagrant_box_descriptor }} ]; then
+          vagrant box add --name ${{ inputs.box }} ${{ inputs.vagrant_box_descriptor }}
         fi
+      shell: bash
+
+    - name: Generate Vagrantfile
+      run: |
         cat > Vagrantfile <<EOF
           Vagrant.configure("2") do |config|
+            config.ssh.compression = false
+            config.ssh.connect_timeout = 30
             config.ssh.forward_env = ["*"]
+            config.ssh.shell = "bash"
+            config.ssh.username = "${{ inputs.vagrant_ssh_username }}"
             config.vm.boot_timeout = 1800
             config.vm.box = "${{ inputs.box }}"
             config.vm.box_check_update = false
@@ -72,17 +108,25 @@ runs:
             config.vm.synced_folder ".", "/vagrant", disabled: true
           end
         EOF
+      shell: bash
+
+    - name: Start Vagrant Environment
+      run: |
         vagrant up
+      shell: bash
+
+    - name: Save OpenSSH configuration to ~/.ssh/config
+      run: |
         vagrant ssh-config --host vagrantbox >> ~/.ssh/config
       shell: bash
 
-    - name: Create bash override script
+    - name: Generate /bin/bash override script
       run: |
         echo "#!/bin/bash" | sudo tee /usr/local/bin/bash
         echo "SCRIPT=\$(mktemp)" | sudo tee -a /usr/local/bin/bash
         echo "echo \"#!/usr/bin/env bash\" >> \${SCRIPT}" | sudo tee -a /usr/local/bin/bash
-        echo "echo \"set -euxo pipefail\" >> \${SCRIPT}" | sudo tee -a /usr/local/bin/bash
         echo "echo \"cd $(pwd)\" >> \${SCRIPT}" | sudo tee -a /usr/local/bin/bash
+        echo "echo \"set -euxo pipefail\" >> \${SCRIPT}" | sudo tee -a /usr/local/bin/bash
         echo "echo \"bash \$@\" >> \${SCRIPT}" | sudo tee -a /usr/local/bin/bash
         echo "mv \${SCRIPT} ${{ runner.temp }}/command.sh" | sudo tee -a /usr/local/bin/bash
         echo "chmod a+x ${{ runner.temp }}/command.sh" | sudo tee -a /usr/local/bin/bash
@@ -95,3 +139,14 @@ runs:
         echo "exit \${EXIT_STATUS}" | sudo tee -a /usr/local/bin/bash
         sudo chmod +x /usr/local/bin/bash
       shell: bash
+
+    - name: Package Vagrant Box and save to GitHub Actions Cache
+      if: inputs.save_box_to_cache
+      uses: gacts/run-and-post-run@v1
+      with:
+        post: >-
+          if [ ! -f ${{ inputs.vagrant_box_descriptor }} ]; then
+          vagrant ssh --command "${{ inputs.pre-package-commands }}";
+          vagrant package --output ${{ inputs.vagrant_box_descriptor }};
+          fi
+        post-shell: /bin/bash
