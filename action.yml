@@ -36,8 +36,6 @@ inputs:
       service motd onestop;
       rm -f /var/run/motd;
       chmod -x /usr/bin/fortune;
-      mkdir -p /usr/local/etc/pkg/repos;
-      sed 's#/quarterly#/latest#g' /etc/pkg/FreeBSD.conf > /usr/local/etc/pkg/repos/FreeBSD.conf;
       export ASSUME_ALWAYS_YES=yes;
       pkg bootstrap -f;
       pkg upgrade;

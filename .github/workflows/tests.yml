@@ -10,6 +10,7 @@ jobs:
     strategy:
       matrix:
         box:
+          - freebsd/FreeBSD-13.2-RELEASE
           - generic/freebsd12
           - generic/freebsd13
       fail-fast: false
