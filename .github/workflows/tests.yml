@@ -17,7 +17,7 @@ jobs:
       fail-fast: false
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Provision VM
         uses: ./
@@ -78,7 +78,7 @@ jobs:
       fail-fast: false
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Provision VM
         uses: ./
@@ -123,3 +123,54 @@ jobs:
           fi
         shell: bash --noprofile --norc -euo pipefail {0}
         working-directory: new_working_directory
+
+  OpenBSD-On-Linux:
+    name: ${{ matrix.box }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        box:
+          - generic/openbsd6
+          - generic/openbsd7
+      fail-fast: false
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Provision VM
+        uses: ./
+        with:
+          box: ${{ matrix.box }}
+          cpus: 4
+          pre-package-commands: >-
+            find ${{ github.workspace }} -mindepth 1 -delete;
+            find ${{ runner.temp }} -mindepth 1 -delete;
+          provision-commands: >-
+            pkg_add -u;
+            pkg_add -I rsync--;
+            mkdir -p ${{ github.workspace }};
+            chown vagrant:vagrant ${{ github.workspace }};
+            mkdir -p ${{ runner.temp }};
+            chown vagrant:vagrant ${{ runner.temp }};
+          save_box_to_cache: true
+          use_cached_box: true
+
+      - name: Run Test (VM)
+        run: |
+          if [ "$(uname -s)" = "OpenBSD" ]; then
+            echo "OpenBSD detected."
+          else
+            echo "OpenBSD not detected."
+            exit 1
+          fi
+        shell: bash --noprofile --norc -euo pipefail {0}
+
+      - name: Run Test (Host)
+        run: |
+          if [ "$(uname -s)" = "Linux" ]; then
+            echo "Linux detected."
+          else
+            echo "Linux not detected."
+            exit 1
+          fi
+        shell: /bin/bash --noprofile --norc -euo pipefail {0}
