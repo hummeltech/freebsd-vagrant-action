@@ -123,7 +123,7 @@ runs:
         echo "#!/bin/bash" | sudo tee /usr/local/bin/bash
         echo "SCRIPT=\$(mktemp)" | sudo tee -a /usr/local/bin/bash
         echo "echo \"#!/usr/bin/env bash\" >> \${SCRIPT}" | sudo tee -a /usr/local/bin/bash
-        echo "echo \"cd $(pwd)\" >> \${SCRIPT}" | sudo tee -a /usr/local/bin/bash
+        echo "echo \"cd \${PWD}\" >> \${SCRIPT}" | sudo tee -a /usr/local/bin/bash
         echo "echo \"set -euxo pipefail\" >> \${SCRIPT}" | sudo tee -a /usr/local/bin/bash
         echo "echo \"bash \$@\" >> \${SCRIPT}" | sudo tee -a /usr/local/bin/bash
         echo "mv \${SCRIPT} ${{ runner.temp }}/command.sh" | sudo tee -a /usr/local/bin/bash
@@ -138,7 +138,7 @@ runs:
         sudo chmod +x /usr/local/bin/bash
       shell: bash
 
-    - name: Package Vagrant Box and save to GitHub Actions Cache
+    - name: Package Vagrant Box
       if: inputs.save_box_to_cache
       uses: gacts/run-and-post-run@v1
       with:

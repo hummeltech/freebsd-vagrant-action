@@ -1,3 +1,4 @@
+---
 name: Tests
 
 on:
@@ -10,6 +11,7 @@ jobs:
     strategy:
       matrix:
         box:
+          - freebsd/FreeBSD-12.4-RELEASE
           - freebsd/FreeBSD-13.2-RELEASE
           - generic/freebsd12
           - generic/freebsd13
@@ -26,7 +28,7 @@ jobs:
           save_box_to_cache: true
           use_cached_box: true
 
-      - name: Run Test (VM)
+      - name: Run Test (uname) (VM)
         run: |
           if [ "$(uname -s)" = "FreeBSD" ]; then
             echo "FreeBSD detected."
@@ -36,7 +38,7 @@ jobs:
           fi
         shell: bash --noprofile --norc -euo pipefail {0}
 
-      - name: Run Test (Host)
+      - name: Run Test (uname) (Host)
         run: |
           if [ "$(uname -s)" = "Darwin" ]; then
             echo "Darwin detected."
@@ -45,3 +47,19 @@ jobs:
             exit 1
           fi
         shell: /bin/bash --noprofile --norc -euo pipefail {0}
+
+      - name: Prepare Test (working-directory) (VM)
+        run: |
+          mkdir new_working_directory
+        shell: bash --noprofile --norc -euo pipefail {0}
+
+      - name: Run Test (working-directory) (VM)
+        run: |
+          if [ "$(basename ${PWD})" = "new_working_directory" ]; then
+            echo "Expected working directory detected."
+          else
+            echo "Expected working directory not detected."
+            exit 1
+          fi
+        shell: bash --noprofile --norc -euo pipefail {0}
+        working-directory: new_working_directory
