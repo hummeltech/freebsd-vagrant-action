@@ -23,8 +23,8 @@ jobs:
       - name: Provision VM
         uses: ./
         with:
-          cpus: 4
           box: ${{ matrix.box }}
+          cpus: 4
           save_box_to_cache: true
           use_cached_box: true
 

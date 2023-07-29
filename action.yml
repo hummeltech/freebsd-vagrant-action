@@ -1,5 +1,6 @@
 ---
 name: Start Vagrant Box
+description: Allow running command-line programs via bash shell of FreeBSD VMs provisioned with Vagrant using the run keyword.
 
 inputs:
   box:
