@@ -17,7 +17,7 @@ This action allows the running of command-line programs via the `bash` shell of 
 1. Provision a `FreeBSD VM` using the specified `box` (with 2 CPUs & 2GB of RAM)
     ```yaml
     - name: Provision VM
-      uses: hummeltech/freebsd-vagrant-action@v1.3
+      uses: hummeltech/freebsd-vagrant-action@v1.4
       with:
         box: freebsd/FreeBSD-12.4-RELEASE
         cpus: 2
