@@ -68,9 +68,24 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Upgrade Vagrant
-      run: brew upgrade --force --quiet vagrant
+    - name: Install/Upgrade Vagrant (Linux)
+      env:
+        DEBIAN_FRONTEND: noninteractive
+      run: |
+        sudo apt-get update
+        sudo apt-get --yes install \
+          libvirt-daemon-system \
+          qemu \
+          vagrant \
+          virtualbox
       shell: bash
+      if: runner.os == 'Linux'
+
+    - name: Install/Upgrade Vagrant (macOS)
+      run: |
+        brew upgrade --force --quiet vagrant
+      shell: bash
+      if: runner.os == 'macOS'
 
     - name: Cache Vagrant Box
       if: inputs.save_box_to_cache
@@ -87,7 +102,38 @@ runs:
         fi
       shell: bash
 
-    - name: Generate Vagrantfile
+    - name: Install Vagrant libvirt Plugin (Linux)
+      run: |
+        vagrant plugin install vagrant-libvirt
+        sudo setfacl -m user:$USER:rw /var/run/libvirt/libvirt-sock
+      shell: bash
+      if: runner.os == 'Linux'
+
+    - name: Generate Vagrantfile (Linux)
+      run: |
+        cat > Vagrantfile <<EOF
+          Vagrant.configure("2") do |config|
+            config.ssh.compression = false
+            config.ssh.connect_timeout = 30
+            config.ssh.forward_env = ["*"]
+            config.ssh.shell = "bash"
+            config.ssh.username = "${{ inputs.vagrant_ssh_username }}"
+            config.vm.boot_timeout = 1800
+            config.vm.box = "${{ inputs.box }}"
+            config.vm.box_check_update = false
+            config.vm.provider :libvirt do |v|
+              v.cpus = ${{ inputs.cpus }}
+              v.driver = "kvm"
+              v.memory = ${{ inputs.memory }}
+            end
+            config.vm.provision "shell", inline: "${{ inputs.provision-commands }}"
+            config.vm.synced_folder ".", "/vagrant", disabled: true
+          end
+        EOF
+      shell: bash
+      if: runner.os == 'Linux'
+
+    - name: Generate Vagrantfile (macOS)
       run: |
         cat > Vagrantfile <<EOF
           Vagrant.configure("2") do |config|
@@ -100,22 +146,36 @@ runs:
             config.vm.box = "${{ inputs.box }}"
             config.vm.box_check_update = false
             config.vm.provider :virtualbox do |v|
-              v.customize ["modifyvm", :id, "--cpus", ${{ inputs.cpus }}]
-              v.customize ["modifyvm", :id, "--memory", ${{ inputs.memory }}]
+              v.cpus = ${{ inputs.cpus }}
+              v.memory = ${{ inputs.memory }}
             end
             config.vm.provision "shell", inline: "${{ inputs.provision-commands }}"
             config.vm.synced_folder ".", "/vagrant", disabled: true
           end
         EOF
       shell: bash
+      if: runner.os == 'macOS'
 
-    - name: Start Vagrant Environment
+    - name: Show Vagrant Status
+      run: |
+        vagrant status
+      shell: bash
+
+    - name: Start Vagrant Environment (Linux)
+      run: |
+        vagrant up --provider libvirt
+      shell: bash
+      if: runner.os == 'Linux'
+
+    - name: Start Vagrant Environment (macOS)
       run: |
         vagrant up
       shell: bash
+      if: runner.os == 'macOS'
 
     - name: Save OpenSSH configuration to ~/.ssh/config
       run: |
+        mkdir -p ~/.ssh
         vagrant ssh-config --host vagrantbox >> ~/.ssh/config
       shell: bash
 
