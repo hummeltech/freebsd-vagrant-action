@@ -5,16 +5,76 @@ on:
   push:
 
 jobs:
-  FreeBSD:
+  FreeBSD-On-Linux:
+    name: ${{ matrix.box }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        box:
+          - generic/freebsd12
+          - generic/freebsd13
+          - generic/freebsd14
+      fail-fast: false
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Provision VM
+        uses: ./
+        with:
+          box: ${{ matrix.box }}
+          cpus: 4
+          save_box_to_cache: true
+          use_cached_box: true
+
+      - name: Run Test (uname) (VM)
+        run: |
+          if [ "$(uname -s)" = "FreeBSD" ]; then
+            echo "FreeBSD detected."
+          else
+            echo "FreeBSD not detected."
+            exit 1
+          fi
+        shell: bash --noprofile --norc -euo pipefail {0}
+
+      - name: Run Test (uname) (Host)
+        run: |
+          if [ "$(uname -s)" = "Linux" ]; then
+            echo "Linux detected."
+          else
+            echo "Linux not detected."
+            exit 1
+          fi
+        shell: /bin/bash --noprofile --norc -euo pipefail {0}
+
+      - name: Prepare Test (working-directory) (VM)
+        run: |
+          mkdir new_working_directory
+        shell: bash --noprofile --norc -euo pipefail {0}
+
+      - name: Run Test (working-directory) (VM)
+        run: |
+          if [ "$(basename ${PWD})" = "new_working_directory" ]; then
+            echo "Expected working directory detected."
+          else
+            echo "Expected working directory not detected."
+            exit 1
+          fi
+        shell: bash --noprofile --norc -euo pipefail {0}
+        working-directory: new_working_directory
+
+  FreeBSD-On-macOS:
     name: ${{ matrix.box }}
     runs-on: macos-latest
     strategy:
       matrix:
         box:
-          - freebsd/FreeBSD-12.4-RELEASE
-          - freebsd/FreeBSD-13.2-RELEASE
+          - freebsd/FreeBSD-12.4-STABLE
+          - freebsd/FreeBSD-13.2-STABLE
+          - freebsd/FreeBSD-14.0-STABLE
           - generic/freebsd12
           - generic/freebsd13
+          - generic/freebsd14
       fail-fast: false
     steps:
       - name: Checkout code
