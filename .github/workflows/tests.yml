@@ -72,9 +72,6 @@ jobs:
           - freebsd/FreeBSD-12.4-STABLE
           - freebsd/FreeBSD-13.2-STABLE
           - freebsd/FreeBSD-14.0-STABLE
-          - generic/freebsd12
-          - generic/freebsd13
-          - generic/freebsd14
       fail-fast: false
     steps:
       - name: Checkout code
@@ -124,13 +121,79 @@ jobs:
         shell: bash --noprofile --norc -euo pipefail {0}
         working-directory: new_working_directory
 
+  NetBSD-On-Linux:
+    name: ${{ matrix.box }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        box:
+          - generic/netbsd8
+          - generic/netbsd9
+      fail-fast: false
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Provision VM
+        uses: ./
+        with:
+          box: ${{ matrix.box }}
+          cpus: 4
+          pre-package-commands: >-
+            find ${{ github.workspace }} -mindepth 1 -delete;
+            find ${{ runner.temp }} -mindepth 1 -delete;
+          provision-commands: >-
+            source /etc/profile;
+            pkg_add rsync;
+            mkdir -p ${{ github.workspace }};
+            chown vagrant:vagrant ${{ github.workspace }};
+            mkdir -p ${{ runner.temp }};
+            chown vagrant:vagrant ${{ runner.temp }};
+          save_box_to_cache: true
+          use_cached_box: true
+
+      - name: Run Test (uname) (VM)
+        run: |
+          if [ "$(uname -s)" = "NetBSD" ]; then
+            echo "NetBSD detected."
+          else
+            echo "NetBSD not detected."
+            exit 1
+          fi
+        shell: bash --noprofile --norc -euo pipefail {0}
+
+      - name: Run Test (uname) (Host)
+        run: |
+          if [ "$(uname -s)" = "Linux" ]; then
+            echo "Linux detected."
+          else
+            echo "Linux not detected."
+            exit 1
+          fi
+        shell: /bin/bash --noprofile --norc -euo pipefail {0}
+
+      - name: Prepare Test (working-directory) (VM)
+        run: |
+          mkdir new_working_directory
+        shell: bash --noprofile --norc -euo pipefail {0}
+
+      - name: Run Test (working-directory) (VM)
+        run: |
+          if [ "$(basename ${PWD})" = "new_working_directory" ]; then
+            echo "Expected working directory detected."
+          else
+            echo "Expected working directory not detected."
+            exit 1
+          fi
+        shell: bash --noprofile --norc -euo pipefail {0}
+        working-directory: new_working_directory
+
   OpenBSD-On-Linux:
     name: ${{ matrix.box }}
     runs-on: ubuntu-latest
     strategy:
       matrix:
         box:
-          - generic/openbsd6
           - generic/openbsd7
       fail-fast: false
     steps:
@@ -155,7 +218,7 @@ jobs:
           save_box_to_cache: true
           use_cached_box: true
 
-      - name: Run Test (VM)
+      - name: Run Test (uname) (VM)
         run: |
           if [ "$(uname -s)" = "OpenBSD" ]; then
             echo "OpenBSD detected."
@@ -165,7 +228,7 @@ jobs:
           fi
         shell: bash --noprofile --norc -euo pipefail {0}
 
-      - name: Run Test (Host)
+      - name: Run Test (uname) (Host)
         run: |
           if [ "$(uname -s)" = "Linux" ]; then
             echo "Linux detected."
@@ -174,3 +237,19 @@ jobs:
             exit 1
           fi
         shell: /bin/bash --noprofile --norc -euo pipefail {0}
+
+      - name: Prepare Test (working-directory) (VM)
+        run: |
+          mkdir new_working_directory
+        shell: bash --noprofile --norc -euo pipefail {0}
+
+      - name: Run Test (working-directory) (VM)
+        run: |
+          if [ "$(basename ${PWD})" = "new_working_directory" ]; then
+            echo "Expected working directory detected."
+          else
+            echo "Expected working directory not detected."
+            exit 1
+          fi
+        shell: bash --noprofile --norc -euo pipefail {0}
+        working-directory: new_working_directory
