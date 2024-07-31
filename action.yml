@@ -89,7 +89,7 @@ runs:
 
     - name: Cache Vagrant Box
       if: inputs.save_box_to_cache
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: ${{ inputs.vagrant_box_descriptor }}
         key: ${{ inputs.box }}.box
