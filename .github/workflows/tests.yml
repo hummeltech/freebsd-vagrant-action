@@ -11,7 +11,6 @@ jobs:
     strategy:
       matrix:
         box:
-          - generic/freebsd12
           - generic/freebsd13
           - generic/freebsd14
       fail-fast: false
@@ -69,10 +68,8 @@ jobs:
     strategy:
       matrix:
         box:
-          - freebsd/FreeBSD-12.4-STABLE
           - freebsd/FreeBSD-13.3-STABLE
           - freebsd/FreeBSD-14.1-STABLE
-          - generic/freebsd12
           - generic/freebsd13
           - generic/freebsd14
       fail-fast: false
