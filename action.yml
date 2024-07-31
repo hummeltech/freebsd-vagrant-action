@@ -92,7 +92,7 @@ runs:
       uses: actions/cache@v4
       with:
         path: ${{ inputs.vagrant_box_descriptor }}
-        key: ${{ inputs.box }}.box
+        key: ${{ inputs.box }}-${{ runner.os }}.box
 
     - name: Add Vagrant Box
       if: inputs.use_cached_box
