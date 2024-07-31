@@ -17,7 +17,7 @@ jobs:
       fail-fast: false
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Provision VM
         uses: ./
@@ -65,20 +65,20 @@ jobs:
 
   FreeBSD-On-macOS:
     name: ${{ matrix.box }}
-    runs-on: macos-latest
+    runs-on: macos-13
     strategy:
       matrix:
         box:
           - freebsd/FreeBSD-12.4-STABLE
-          - freebsd/FreeBSD-13.2-STABLE
-          - freebsd/FreeBSD-14.0-STABLE
+          - freebsd/FreeBSD-13.3-STABLE
+          - freebsd/FreeBSD-14.1-STABLE
           - generic/freebsd12
           - generic/freebsd13
           - generic/freebsd14
       fail-fast: false
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Provision VM
         uses: ./
