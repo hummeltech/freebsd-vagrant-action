@@ -4,7 +4,7 @@ description: Allow running command-line programs via bash shell of FreeBSD VMs p
 
 inputs:
   box:
-    default: generic/freebsd13
+    default: generic/freebsd14
     description: Vagrant Box
     type: string
   cpus:
@@ -83,7 +83,7 @@ runs:
 
     - name: Install/Upgrade Vagrant (macOS)
       run: |
-        brew upgrade --force --quiet vagrant
+        brew install --cask --force --quiet vagrant virtualbox
       shell: bash
       if: runner.os == 'macOS'
 
