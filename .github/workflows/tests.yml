@@ -18,13 +18,15 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Set `CPUS`
+        run: |
+          echo "CPUS=$(nproc)" >> ${GITHUB_ENV}
+
       - name: Provision VM
         uses: ./
         with:
           box: ${{ matrix.box }}
-          cpus: 4
-          save_box_to_cache: true
-          use_cached_box: true
+          cpus: ${{ env.CPUS }}
 
       - name: Run Test (uname) (VM)
         run: |
@@ -77,13 +79,15 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Set `CPUS`
+        run: |
+          echo "CPUS=$(getconf _NPROCESSORS_ONLN)" >> ${GITHUB_ENV}
+
       - name: Provision VM
         uses: ./
         with:
           box: ${{ matrix.box }}
-          cpus: 4
-          save_box_to_cache: true
-          use_cached_box: true
+          cpus: ${{ env.CPUS }}
 
       - name: Run Test (uname) (VM)
         run: |
