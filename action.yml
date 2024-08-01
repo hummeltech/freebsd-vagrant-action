@@ -24,14 +24,14 @@ inputs:
       - 4096
       - 8192
     type: choice
-  pre-package-commands:
+  pre_package_commands:
     default: >-
       find ${{ github.workspace }} -mindepth 1 -delete;
       find ${{ runner.temp }} -mindepth 1 -delete;
       sudo pkg clean --all --yes;
     description: Command(s) to run before packaging Vagrant Box (double quotation marks are not allowed)
     type: string
-  provision-commands:
+  provision_commands:
     default: >-
       sysrc update_motd=NO;
       service motd onestop;
@@ -68,144 +68,16 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Install/Upgrade Vagrant (Linux)
-      env:
-        DEBIAN_FRONTEND: noninteractive
-      run: |
-        sudo apt-get update
-        sudo apt-get --yes install \
-          libvirt-daemon-system \
-          qemu \
-          vagrant \
-          virtualbox
-      shell: bash
-      if: runner.os == 'Linux'
-
-    - name: Install/Upgrade Vagrant (macOS)
-      run: |
-        brew install --cask --force --quiet vagrant virtualbox
-      shell: bash
-      if: runner.os == 'macOS'
-
-    - name: Cache Vagrant Box
-      if: inputs.save_box_to_cache
-      uses: actions/cache@v4
+    - name: Start FreeBSD Vagrant Box
+      uses: hummeltech/vagrant-action@v1
       with:
-        path: ${{ inputs.vagrant_box_descriptor }}
-        key: ${{ inputs.box }}-${{ runner.os }}.box
+        box: ${{ inputs.box }}
+        cpus: ${{ inputs.cpus }}
+        memory: ${{ inputs.memory }}
+        pre_package_commands: ${{ inputs.pre_package_commands }}
+        provision_commands: ${{ inputs.provision_commands }}
+        save_box_to_cache: ${{ inputs.save_box_to_cache }}
+        use_cached_box: ${{ inputs.use_cached_box }}
+        vagrant_box_descriptor: ${{ inputs.vagrant_box_descriptor }}
+        vagrant_ssh_username: ${{ inputs.vagrant_ssh_username }}
 
-    - name: Add Vagrant Box
-      if: inputs.use_cached_box
-      run: |
-        if [ -f ${{ inputs.vagrant_box_descriptor }} ]; then
-          vagrant box add --name ${{ inputs.box }} ${{ inputs.vagrant_box_descriptor }}
-        fi
-      shell: bash
-
-    - name: Install Vagrant libvirt Plugin (Linux)
-      run: |
-        vagrant plugin install vagrant-libvirt
-        sudo setfacl -m user:$USER:rw /var/run/libvirt/libvirt-sock
-      shell: bash
-      if: runner.os == 'Linux'
-
-    - name: Generate Vagrantfile (Linux)
-      run: |
-        cat > Vagrantfile <<EOF
-          Vagrant.configure("2") do |config|
-            config.ssh.compression = false
-            config.ssh.connect_timeout = 30
-            config.ssh.forward_env = ["*"]
-            config.ssh.shell = "bash"
-            config.ssh.username = "${{ inputs.vagrant_ssh_username }}"
-            config.vm.boot_timeout = 1800
-            config.vm.box = "${{ inputs.box }}"
-            config.vm.box_check_update = false
-            config.vm.provider :libvirt do |v|
-              v.cpus = ${{ inputs.cpus }}
-              v.driver = "kvm"
-              v.memory = ${{ inputs.memory }}
-            end
-            config.vm.provision "shell", inline: "${{ inputs.provision-commands }}"
-            config.vm.synced_folder ".", "/vagrant", disabled: true
-          end
-        EOF
-      shell: bash
-      if: runner.os == 'Linux'
-
-    - name: Generate Vagrantfile (macOS)
-      run: |
-        cat > Vagrantfile <<EOF
-          Vagrant.configure("2") do |config|
-            config.ssh.compression = false
-            config.ssh.connect_timeout = 30
-            config.ssh.forward_env = ["*"]
-            config.ssh.shell = "bash"
-            config.ssh.username = "${{ inputs.vagrant_ssh_username }}"
-            config.vm.boot_timeout = 1800
-            config.vm.box = "${{ inputs.box }}"
-            config.vm.box_check_update = false
-            config.vm.provider :virtualbox do |v|
-              v.cpus = ${{ inputs.cpus }}
-              v.memory = ${{ inputs.memory }}
-            end
-            config.vm.provision "shell", inline: "${{ inputs.provision-commands }}"
-            config.vm.synced_folder ".", "/vagrant", disabled: true
-          end
-        EOF
-      shell: bash
-      if: runner.os == 'macOS'
-
-    - name: Show Vagrant Status
-      run: |
-        vagrant status
-      shell: bash
-
-    - name: Start Vagrant Environment (Linux)
-      run: |
-        vagrant up --provider libvirt
-      shell: bash
-      if: runner.os == 'Linux'
-
-    - name: Start Vagrant Environment (macOS)
-      run: |
-        vagrant up
-      shell: bash
-      if: runner.os == 'macOS'
-
-    - name: Save OpenSSH configuration to ~/.ssh/config
-      run: |
-        mkdir -p ~/.ssh
-        vagrant ssh-config --host vagrantbox >> ~/.ssh/config
-      shell: bash
-
-    - name: Generate /bin/bash override script
-      run: |
-        echo "#!/bin/bash" | sudo tee /usr/local/bin/bash
-        echo "SCRIPT=\$(mktemp)" | sudo tee -a /usr/local/bin/bash
-        echo "echo \"#!/usr/bin/env bash\" >> \${SCRIPT}" | sudo tee -a /usr/local/bin/bash
-        echo "echo \"cd \${PWD}\" >> \${SCRIPT}" | sudo tee -a /usr/local/bin/bash
-        echo "echo \"set -euxo pipefail\" >> \${SCRIPT}" | sudo tee -a /usr/local/bin/bash
-        echo "echo \"bash \$@\" >> \${SCRIPT}" | sudo tee -a /usr/local/bin/bash
-        echo "mv \${SCRIPT} ${{ runner.temp }}/command.sh" | sudo tee -a /usr/local/bin/bash
-        echo "chmod a+x ${{ runner.temp }}/command.sh" | sudo tee -a /usr/local/bin/bash
-        echo "rsync --archive --delete ${{ github.workspace }}/ vagrantbox:${{ github.workspace }}/" | sudo tee -a /usr/local/bin/bash
-        echo "rsync --archive --delete ${{ runner.temp }}/ vagrantbox:${{ runner.temp }}/" | sudo tee -a /usr/local/bin/bash
-        echo "vagrant ssh --command \"${{ runner.temp }}/command.sh\"" | sudo tee -a /usr/local/bin/bash
-        echo "EXIT_STATUS=\$?" | sudo tee -a /usr/local/bin/bash
-        echo "rsync --archive --delete vagrantbox:${{ github.workspace }}/ ${{ github.workspace }}/" | sudo tee -a /usr/local/bin/bash
-        echo "rsync --archive --delete vagrantbox:${{ runner.temp }}/ ${{ runner.temp }}/" | sudo tee -a /usr/local/bin/bash
-        echo "exit \${EXIT_STATUS}" | sudo tee -a /usr/local/bin/bash
-        sudo chmod +x /usr/local/bin/bash
-      shell: bash
-
-    - name: Package Vagrant Box
-      if: inputs.save_box_to_cache
-      uses: gacts/run-and-post-run@v1
-      with:
-        post: >-
-          if [ ! -f ${{ inputs.vagrant_box_descriptor }} ]; then
-          vagrant ssh --command "${{ inputs.pre-package-commands }}";
-          vagrant package --output ${{ inputs.vagrant_box_descriptor }};
-          fi
-        post-shell: /bin/bash
