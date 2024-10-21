@@ -3,9 +3,17 @@ name: Start FreeBSD Vagrant Box
 description: Allow running command-line programs via bash shell of FreeBSD VMs provisioned with Vagrant using the run keyword.
 
 inputs:
+  boot_timeout:
+    default: 1800
+    description: VM Boot Timeout
+    type: string
   box:
     default: generic/freebsd14
     description: Vagrant Box
+    type: string
+  connect_timeout:
+    default: 30
+    description: VM SSH Connect Timeout
     type: string
   cpus:
     default: 2
@@ -31,6 +39,13 @@ inputs:
       sudo pkg clean --all --yes;
     description: Command(s) to run before packaging Vagrant Box (double quotation marks are not allowed)
     type: string
+  provider:
+    description: Vagrant provider to use, defaults to virtualbox
+    default: virtualbox
+    options:
+      - libvirt
+      - virtualbox
+    type: choice
   provision_commands:
     default: >-
       sysrc update_motd=NO;
@@ -69,12 +84,15 @@ runs:
   using: composite
   steps:
     - name: Start FreeBSD Vagrant Box
-      uses: hummeltech/vagrant-action@v1
+      uses: hummeltech/vagrant-action@v2
       with:
+        boot_timeout: ${{ inputs.boot_timeout }}
         box: ${{ inputs.box }}
+        connect_timeout: ${{ inputs.connect_timeout }}
         cpus: ${{ inputs.cpus }}
         memory: ${{ inputs.memory }}
         pre_package_commands: ${{ inputs.pre_package_commands }}
+        provider: ${{ inputs.provider }}
         provision_commands: ${{ inputs.provision_commands }}
         save_box_to_cache: ${{ inputs.save_box_to_cache }}
         use_cached_box: ${{ inputs.use_cached_box }}
