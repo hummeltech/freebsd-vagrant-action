@@ -40,8 +40,7 @@ inputs:
     description: Command(s) to run before packaging Vagrant Box (double quotation marks are not allowed)
     type: string
   provider:
-    description: Vagrant provider to use, defaults to virtualbox
-    default: virtualbox
+    description: Vagrant provider to use, defaults to libvirt on Linux and virtualbox on macOS
     options:
       - libvirt
       - virtualbox

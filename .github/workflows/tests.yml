@@ -5,9 +5,9 @@ on:
   push:
 
 jobs:
-  FreeBSD-On-Linux:
-    name: ${{ matrix.box }}
-    runs-on: ubuntu-latest
+  Ubuntu:
+    name: ${{ matrix.runs-on }} (${{ matrix.box }}) (${{ matrix.provider }})
+    runs-on: ${{ matrix.runs-on }}
     strategy:
       matrix:
         box:
@@ -15,6 +15,12 @@ jobs:
           - generic/freebsd14
           - freebsd/FreeBSD-13.4-STABLE
           - freebsd/FreeBSD-14.1-STABLE
+        provider:
+          - libvirt
+          - virtualbox
+        runs-on:
+          - ubuntu-22.04
+          - ubuntu-latest
       fail-fast: false
     steps:
       - name: Checkout code
@@ -29,7 +35,7 @@ jobs:
         with:
           box: ${{ matrix.box }}
           cpus: ${{ env.CPUS }}
-          provider: virtualbox
+          provider: ${{ matrix.provider }}
 
       - name: Run Test (uname) (VM)
         run: |
@@ -67,9 +73,9 @@ jobs:
         shell: bash --noprofile --norc -euo pipefail {0}
         working-directory: new_working_directory
 
-  FreeBSD-On-macOS:
-    name: ${{ matrix.box }}
-    runs-on: macos-13
+  macOS:
+    name: ${{ matrix.runs-on }} (${{ matrix.box }}) (${{ matrix.provider }})
+    runs-on: ${{ matrix.runs-on }}
     strategy:
       matrix:
         box:
@@ -77,6 +83,11 @@ jobs:
           - freebsd/FreeBSD-14.1-STABLE
           - generic/freebsd13
           - generic/freebsd14
+        provider:
+          - libvirt
+          - virtualbox
+        runs-on:
+          - macos-13
       fail-fast: false
     steps:
       - name: Checkout code
@@ -91,6 +102,7 @@ jobs:
         with:
           box: ${{ matrix.box }}
           cpus: ${{ env.CPUS }}
+          provider: ${{ matrix.provider }}
 
       - name: Run Test (uname) (VM)
         run: |
