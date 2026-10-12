@@ -61,6 +61,8 @@ inputs:
       chown vagrant:vagrant ${{ github.workspace }};
       mkdir -p ${{ runner.temp }};
       chown vagrant:vagrant ${{ runner.temp }};
+      mkdir -p $(realpath ${{ runner.temp }}/../_actions);
+      chown vagrant:vagrant $(realpath ${{ runner.temp }}/../_actions);
     description: Command(s) to run for provisioning (double quotation marks are not allowed)
     type: string
   save_box_to_cache:
